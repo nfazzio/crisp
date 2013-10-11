@@ -1,9 +1,10 @@
 This repo contains all work pertinent to my research for Constanza.
 
 Dependencies not within the python standard library: bs4, lxml.
+I would recommend using pip to install these. https://pypi.python.org/pypi/pip
 
-Currently the output and logging is just printed to stdout.
-I still need to write the code to output the data in a csv.
+to use script: cd into .../crisp/scrape
+python scrape.py
 
 TODO:
 Output to csv.
