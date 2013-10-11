@@ -1,1 +1,14 @@
 This repo contains all work pertinent to my research for Constanza.
+
+Dependencies not within the python standard library: bs4, lxml.
+
+Currently the output and logging is just printed to stdout.
+I still need to write the code to output the data in a csv.
+
+TODO:
+Output to csv.
+Analyze csv for scraping coverage.
+Work out edge cases.
+Write committee parser for when a bill is examined by multiple committees.
+More date parsing.
+Finish Option Parser
