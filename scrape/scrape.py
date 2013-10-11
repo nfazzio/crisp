@@ -38,7 +38,9 @@ def main():
 	soup = BeautifulSoup(response, "lxml")
 	strip_comments(soup)
 	cases = get_cases(soup)
-	parse_case(cases[16])
+	for case in cases:
+		parse_case(case)
+	#parse_case(cases[1])
 	#for case in cases:
 	#	parse_case(case)
 
@@ -47,48 +49,28 @@ def get_cases(soup):
 	return soup.findAll('ul')
 
 def parse_case(case):
-	print "case before findall(text)" + str(case)
-	'''
-	#extract Gaceta Parlamentaria links
-	textURL = case.findAll('a', href='True',)
-	print "length: "+str(len(textURL))
-	#Right now, the code expects for there to be just one link
-	if len(textURL) > 1:
-		logger.warning("multiple case texts found")
-	elif len(textURL) < 1:
-		logger.warning("no case text found")
-	else:
-		print "type(textURL): "+str(type(textURL))
-		print str(textURL)
-		(textURL,) = textURL
-		link = textURL['href']
-		print "link is: "+link
-		print "type(textURL): "+str(type(textURL))
-	'''
-	get_links(case)
+	case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria'])
+	links = get_links(case)	
 	#extract text of case
 	case = case.findAll(text=True)
+	case = unicode.join(u'\n',map(unicode,case))
 	#remove empty elements
-	case = [x for x in case if x !="\n"]
-	logger.info("examining the following case data:"+"\n".join(case))
-	#QUESTION: Is the title the entire first line?
-	logger.info("finding title in "+case[0])
-	title = case[0]
-	logger.info("finding legislator_title, legislator, and party in "+case[1])
-	second_line = re.search("por (la|el) (?P<title>[\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*)",case[1])
-	legislator_title = second_line.group('title')
-	legislator = second_line.group('legislator')
-	party = second_line.group('party')
-	
-	#QUESTION - how are committees are separated
-	logger.info("finding committees in "+case[2])
-	committees = re.search("Turnada a la (?P<committees>[^.]*)",case[2]).group('committees')
+	case = case.strip()
 
-	print "type case[3]: "+str(type(case[3]))
+	logger.info("examining the following case data:"+case.strip())
+	logger.info("grabbing title")
+	title = re.match("^.*(?!\n)",case).group()
+
+	(legislator_title, legislator, party) = get_legislator_info(case)
+	committees = get_committees(case)
 
 
-	logger.info("finding outcome in "+case[3])
-	outcome = re.search(re.compile("(?P<outcome>[\w]*)",re.U),case[3]).group(0)
+
+	logger.info("finding outcome ")
+	outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
+	outcome = ""
+	if outcome_match:
+		outcome = outcome_match.group()
 	#date_introduced = 
 	#TODO Change to stdout
 	print "title: "+title
@@ -97,18 +79,42 @@ def parse_case(case):
 	print "party: "+party
 	print "committees: "+committees
 	print "outcome: "+outcome
+	for text,url in links.iteritems():
+		print text+": "+url
+
 	#print "textURL: "+textURL
 
 #	return a dict
 
 def get_links(case):
+	#returns a dictionary of the links contained within the case
 	links={}
 	logger.info("retrieving links in case")
 	textURL = case.findAll('a', href=True)
 	for link in textURL:
-		links[link.getText()]=link['href']
+		links[link.getText()]="http://gaceta.diputados.gob.mx"+link['href']
 	return links
 
+def get_legislator_info(case):
+	logger.info("finding legislator_title, legislator, and party")
+	legislator_title = ""
+	legislator = ""
+	party = ""
+	legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*)",re.U),unicode(case))
+	if legislator_line:
+		legislator_title = legislator_line.group('title')
+		legislator = legislator_line.group('legislator')
+		party = legislator_line.group('party')
+	return (legislator_title, legislator, party)
+
+def get_committees(case):
+	#TODO Split committees based on list provided by constanza
+	logger.info("finding committees")
+	committees = ""
+	committees_line = re.search("Turnada a las? (?P<committees>[^.]*)",case)
+	if committees_line:
+		committees = committees_line.group('committees')
+	return committees
 
 def initialize_output(name):
 	output_dir = os.path.abspath('output')
