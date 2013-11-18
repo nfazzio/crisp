@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+# -*- coding: utf-8 -*-
 import os
 import urllib2
 import csv
@@ -44,7 +44,11 @@ def parse_case(case):
     #case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links'])
     links = get_links(case)    
     #extract text of case
+
+
+    print "case before: " + str(case)
     case = case.findAll(text=True)
+    print "case after findtext " + str(case)
     case = unicode.join(u'\n',map(unicode,case))
     #remove empty elements
     case = case.strip()
@@ -62,7 +66,7 @@ def parse_case(case):
     outcome = ""
     if outcome_match:
         outcome = outcome_match.group()
-    #date_introduced = 
+    date_introduced = get_date_introduced(case)
     #print "title: "+title
     case_dict={}
     case_dict["title"] = title
@@ -76,8 +80,12 @@ def parse_case(case):
     case_dict["committees"] = committees
     #print "outcome: "+outcome
     case_dict["outcome"] = outcome
+    case_dict["date_introduced"] = date_introduced
+
+    dict_links = []
     for text,url in links.iteritems():
-        print text+": "+url
+        dict_links.append(text+": "+url)
+    case_dict["links"] = str(dict_links)
     #print "get info type: "+str(type(get_legislator_info(case)))
     
     #TODO fix unicode issues.
@@ -112,7 +120,7 @@ def get_legislator_info(case):
 def get_committees(case):
     '''Provide a list of subcommittees that a bill was passed to.'''
     logger.info("finding committees")
-    committee_line = re.search("Turnada a las? (?P<committees>[^.]*)",case)
+    committee_line = re.search(re.compile("Turnada a las? (?P<committees>[^.]*)",re.U),case)
     committees_match = []
     if committee_line:
         committee_line = committee_line.group()
@@ -122,12 +130,25 @@ def get_committees(case):
     print committees_match
     return committees_match
 
+def get_date_introduced(case):
+    logger.info("finding date introduced")
+    print case
+    # date_line = re.search(", n.mero.*", case).group()
+    # date = re.search("\w* \d{1,2} de \w* de \d{4}",date_line).group()
+    date = None
+    for date in re.finditer(u"\w* \d{1,2} de \w* de \d{4}", case):
+        pass
+    if date != None:
+        return date.group()
+    else:
+        return ''
+
 def initialize_output(name):
     output_dir = os.path.abspath('output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     date = time.strftime("%Y%m%d")
-    fieldnames = ['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links']
+    fieldnames = ['title','legislator_title','legislator','party','date_introduced','committees','outcome','links']
     output_file = open(os.path.normpath(os.path.join(output_dir,date+"_"+name+".tsv")),'wb')
     return csv.DictWriter(output_file, fieldnames, delimiter='\t')
 
