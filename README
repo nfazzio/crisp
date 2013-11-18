@@ -1,1 +1,15 @@
 This repo contains all work pertinent to my research for Constanza.
+
+Dependencies not within the python standard library: bs4, lxml.
+I would recommend using pip to install these. https://pypi.python.org/pypi/pip
+
+to use script: cd into .../crisp/scrape
+python scrape.py
+
+TODO:
+Output to csv.
+Analyze csv for scraping coverage.
+Work out edge cases.
+Write committee parser for when a bill is examined by multiple committees.
+More date parsing.
+Finish Option Parser
