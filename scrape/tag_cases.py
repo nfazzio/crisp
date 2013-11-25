@@ -14,6 +14,7 @@ import re
 from bs4 import BeautifulSoup, Comment
 import argparse
 import itertools
+import unicodedata
 
 logger = logging.getLogger(__name__)
 with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
@@ -35,7 +36,8 @@ def main():
     tsv_out.writeheader()
     for dictionary in case_dict_list:
         print {k: v.encode('utf8') for (k, v) in dictionary.items()}
-        tsv_out.writerow({k: v.encode('utf8') for (k, v) in dictionary.items()})
+        # tsv_out.writerow({k: v.encode('utf8') for (k, v) in dictionary.items()})
+        tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.items()})
 
 def get_cases(soup):
     return soup.findAll('ul')
@@ -156,6 +158,10 @@ def strip_comments(soup):
     comments = soup.findAll(text=lambda text:isinstance(text, Comment))
     [comment.extract() for comment in comments]
     return soup
+
+def strip_accents(s):
+   return ''.join(c for c in unicodedata.normalize('NFD', s)
+                  if unicodedata.category(c) != 'Mn')
 
 def set_up_parser():
     parser = argparse.ArgumentParser(description='Scrape bill data from Mexican Congress')
