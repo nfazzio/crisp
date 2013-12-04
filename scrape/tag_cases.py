@@ -19,8 +19,6 @@ import unicodedata
 logger = logging.getLogger(__name__)
 with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
     committees = list((committee) for committee in csv.reader(f, delimiter=','))[0]
-print type(committees)
-print committees
 def main():
     #TODO Finish setting up option parser
     parser = set_up_parser()
@@ -40,9 +38,11 @@ def main():
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
 
 def get_cases(soup):
+    """returns all bills from an html page."""
     return soup.findAll('ul')
 
 def parse_case(case):
+    """takes in a bill, and returns a dict of it's pertinent information"""
     #case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links'])
     links = get_links(case)    
     #extract text of case
@@ -50,49 +50,27 @@ def parse_case(case):
     case = unicode.join(u'\n',map(unicode,case))
     #remove empty elements
     case = case.strip()
-
-    logger.info("examining the following case data:"+case.strip())
-    logger.info("grabbing title")
-    title = get_title(case)
-    (legislator_title, legislator, party) = get_legislator_info(case)
-    committees = ', '.join(get_committees(case)).decode('utf-8')
-    outcome = get_outcome(case)
-    date_introduced = get_date_introduced(case)
-    #print "title: "+title
     case_dict={}
-    case_dict["title"] = title
-    #print "legislator_title: "+legislator_title
+    case_dict["title"] = get_title(case)
+    (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
     case_dict["legislator_title"] = legislator_title
-    #print "legislator: "+legislator
-    case_dict["legislator"] = legislator
-    #print "party: "+party
-    case_dict["party"] = party
-    #print "committees: "+committees
-    case_dict["committees"] = committees
-    #print "outcome: "+outcome
-    case_dict["outcome"] = outcome
-    case_dict["date_introduced"] = date_introduced
-
+    case_dict["legislator_name"] = legislator_name
+    case_dict["legislator_gender"] = legislator_gender
+    case_dict["legislator_party"] = legislator_party
+    case_dict["committees"] = ', '.join(get_committees(case)).decode('utf-8')
+    case_dict["outcome"] = get_outcome(case)
+    case_dict["date_introduced"] = get_date_introduced(case)
 
     dict_links = []
     for text,url in links.iteritems():
         dict_links.append(text+": "+url)
     case_dict["links"] = str(dict_links)
-
-    print "before: "+str(case_dict)
     case_dict = remove_nulls(case_dict)
-    print "after: "+str(case_dict)
-    #print "get info type: "+str(type(get_legislator_info(case)))
-    
-    #TODO fix unicode issues.
-    #print str(get_legislator_info(case))
 
-    #TODO add items to dict
-    #print "textURL: "+textURL
     return case_dict
-#    return a dict
 
 def get_links(case):
+    """returns all links from a bill"""
     #returns a dictionary of the links contained within the case
     links={}
     logger.info("retrieving links in case")
@@ -107,10 +85,13 @@ def remove_nulls(dictionary):
     return dictionary
 
 def get_title(case):
+    """returns the title of a bill"""
     title = re.match("^.*(?!\n)",case).group()
     return title
 
 def get_outcome(case):
+    """returns the outcome of a case"""
+    # TODO FIX
     outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
     outcome = ""
     if outcome_match:
@@ -118,19 +99,26 @@ def get_outcome(case):
     return outcome
 
 def get_legislator_info(case):
+    """returns legislator title, legislator, legislator_gender, and legislator_party from a case"""
     logger.info("finding legislator_title, legislator, and party")
     legislator_title = ""
-    legislator = ""
-    party = ""
+    legislator_name = ""
+    legislator_gender = ""
+    legislator_party = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*)",re.U),unicode(case))
     if legislator_line:
         legislator_title = legislator_line.group('title')
-        legislator = legislator_line.group('legislator')
-        party = legislator_line.group('party')
-    return (legislator_title, legislator, party)
+        legislator_name = legislator_line.group('legislator')
+        if legislator_title=="el diputado":
+            legislator_gender = "male"
+        elif legislator_title=="la diputada":
+            legislator_gender = "female"
+
+        legislator_party = legislator_line.group('party')
+    return (legislator_title, legislator_name, legislator_gender, legislator_party)
 
 def get_committees(case):
-    '''Provide a list of subcommittees that a bill was passed to.'''
+    """Provide a list of subcommittees that a bill was passed to."""
     logger.info("finding committees")
     committee_line = re.search(re.compile("Turnada a las? (?P<committees>[^.]*)",re.U),case)
     committees_match = []
@@ -142,6 +130,7 @@ def get_committees(case):
     return committees_match
 
 def get_date_introduced(case):
+    """Returns the date that a bill was introduced"""
     logger.info("finding date introduced")
     # date_line = re.search(", n.mero.*", case).group()
     # date = re.search("\w* \d{1,2} de \w* de \d{4}",date_line).group()
@@ -154,24 +143,28 @@ def get_date_introduced(case):
         return ''
 
 def initialize_output(name):
+    """creates a DictWriter that writes the output tsv"""
     output_dir = os.path.abspath('output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     date = time.strftime("%Y%m%d")
-    fieldnames = ['title','legislator_title','legislator','party','date_introduced','committees','outcome','links']
+    fieldnames = ['title','legislator_title','legislator_name','legislator_gender','legislator_party','date_introduced','committees','outcome','links']
     output_file = open(os.path.normpath(os.path.join(output_dir,date+"_"+name+".tsv")),'wb')
     return csv.DictWriter(output_file, fieldnames, delimiter='\t')
 
 def strip_comments(soup):
+    """Removes comments from html for easier handling"""
     comments = soup.findAll(text=lambda text:isinstance(text, Comment))
     [comment.extract() for comment in comments]
     return soup
 
 def strip_accents(s):
-   return ''.join(c for c in unicodedata.normalize('NFD', s)
+    """strips accented characters from the output, to make friendly for R"""
+    return ''.join(c for c in unicodedata.normalize('NFD', s)
                   if unicodedata.category(c) != 'Mn')
 
 def set_up_parser():
+    """sets up an argument parser"""
     parser = argparse.ArgumentParser(description='Scrape bill data from Mexican Congress')
     parser.add_argument('--verbose', '-v', help="will print logger.info statements", action="store_true")
     args = parser.parse_args()
