@@ -38,11 +38,11 @@ def main():
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
 
 def get_cases(soup):
-    """returns all bills from an html page."""
+    """Returns all bills from an html page."""
     return soup.findAll('ul')
 
 def parse_case(case):
-    """takes in a bill, and returns a dict of it's pertinent information"""
+    """Takes in a bill, and returns a dict of it's pertinent information."""
     #case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links'])
     links = get_links(case)    
     #extract text of case
@@ -70,7 +70,7 @@ def parse_case(case):
     return case_dict
 
 def get_links(case):
-    """returns all links from a bill"""
+    """Returns all links from a bill."""
     #returns a dictionary of the links contained within the case
     links={}
     logger.info("retrieving links in case")
@@ -80,17 +80,17 @@ def get_links(case):
     return links
 
 def remove_nulls(dictionary):
-    """ Replace null/empty values with NA to make output compatible with R """
+    """Replace null/empty values with NA to make output compatible with R."""
     dictionary = {key:("NA" if value in ('', None) else value) for (key,value) in dictionary.iteritems()}
     return dictionary
 
 def get_title(case):
-    """returns the title of a bill"""
+    """Returns the title of a bill."""
     title = re.match("^.*(?!\n)",case).group()
     return title
 
 def get_outcome(case):
-    """returns the outcome of a case"""
+    """Returns the outcome of a case."""
     # TODO FIX
     outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
     outcome = ""
@@ -99,22 +99,29 @@ def get_outcome(case):
     return outcome
 
 def get_legislator_info(case):
-    """returns legislator title, legislator, legislator_gender, and legislator_party from a case"""
-    logger.info("finding legislator_title, legislator, and party")
+    """Returns legislator title, legislator, legislator_gender, and legislator_party from a bill."""
     legislator_title = ""
     legislator_name = ""
     legislator_gender = ""
     legislator_party = ""
-    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*)",re.U),unicode(case))
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
     if legislator_line:
-        legislator_title = legislator_line.group('title')
-        legislator_name = legislator_line.group('legislator')
-        if legislator_title=="el diputado":
-            legislator_gender = "male"
-        elif legislator_title=="la diputada":
-            legislator_gender = "female"
-
-        legislator_party = legislator_line.group('party')
+        # Edge case for when legislator title is a Congreso.
+        if "Congreso" in legislator_line.group():
+            legislator_title = re.search("el Congreso .*?\.", legislator_line.group()).group()
+        elif u"Cámara" in legislator_line.group():
+            print legislator_line.group()
+            print u"Cámara" in legislator_line.group()
+            print re.search(u"Cámara", legislator_line.group())
+            legislator_title = re.search(ur"Cámara .*?\.", legislator_line.group()).group()
+        else:
+            legislator_title = legislator_line.group('title')
+            legislator_name = legislator_line.group('legislator')
+            if re.search("el diputado *",legislator_title):
+                legislator_gender = "male"
+            elif re.search("el diputado *",legislator_title):
+                legislator_gender = "female"
+            legislator_party = legislator_line.group('party')
     return (legislator_title, legislator_name, legislator_gender, legislator_party)
 
 def get_committees(case):
