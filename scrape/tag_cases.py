@@ -116,7 +116,7 @@ def get_legislator_info(case):
             legislator_name = legislator_line.group('legislator')
             if re.search("el diputado *",legislator_title):
                 legislator_gender = "male"
-            elif re.search("el diputado *",legislator_title):
+            elif re.search("la diputada *",legislator_title):
                 legislator_gender = "female"
             legislator_party = legislator_line.group('party')
     return (legislator_title, legislator_name, legislator_gender, legislator_party)
