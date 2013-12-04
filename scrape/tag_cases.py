@@ -35,9 +35,9 @@ def main():
     tsv_out = initialize_output('test')
     tsv_out.writeheader()
     for dictionary in case_dict_list:
-        print {k: v.encode('utf8') for (k, v) in dictionary.items()}
+        # print {k: v.encode('utf8') for (k, v) in dictionary.items()}
         # tsv_out.writerow({k: v.encode('utf8') for (k, v) in dictionary.items()})
-        tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.items()})
+        tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
 
 def get_cases(soup):
     return soup.findAll('ul')
@@ -46,28 +46,17 @@ def parse_case(case):
     #case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links'])
     links = get_links(case)    
     #extract text of case
-
-
-    print "case before: " + str(case)
     case = case.findAll(text=True)
-    print "case after findtext " + str(case)
     case = unicode.join(u'\n',map(unicode,case))
     #remove empty elements
     case = case.strip()
 
     logger.info("examining the following case data:"+case.strip())
     logger.info("grabbing title")
-    title = re.match("^.*(?!\n)",case).group()
+    title = get_title(case)
     (legislator_title, legislator, party) = get_legislator_info(case)
     committees = ', '.join(get_committees(case)).decode('utf-8')
-
-
-
-    logger.info("finding outcome ")
-    outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
-    outcome = ""
-    if outcome_match:
-        outcome = outcome_match.group()
+    outcome = get_outcome(case)
     date_introduced = get_date_introduced(case)
     #print "title: "+title
     case_dict={}
@@ -84,10 +73,15 @@ def parse_case(case):
     case_dict["outcome"] = outcome
     case_dict["date_introduced"] = date_introduced
 
+
     dict_links = []
     for text,url in links.iteritems():
         dict_links.append(text+": "+url)
     case_dict["links"] = str(dict_links)
+
+    print "before: "+str(case_dict)
+    case_dict = remove_nulls(case_dict)
+    print "after: "+str(case_dict)
     #print "get info type: "+str(type(get_legislator_info(case)))
     
     #TODO fix unicode issues.
@@ -106,6 +100,22 @@ def get_links(case):
     for link in textURL:
         links[link.getText()]="http://gaceta.diputados.gob.mx"+link['href']
     return links
+
+def remove_nulls(dictionary):
+    """ Replace null/empty values with NA to make output compatible with R """
+    dictionary = {key:("NA" if value in ('', None) else value) for (key,value) in dictionary.iteritems()}
+    return dictionary
+
+def get_title(case):
+    title = re.match("^.*(?!\n)",case).group()
+    return title
+
+def get_outcome(case):
+    outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
+    outcome = ""
+    if outcome_match:
+        outcome = outcome_match.group()
+    return outcome
 
 def get_legislator_info(case):
     logger.info("finding legislator_title, legislator, and party")
@@ -129,12 +139,10 @@ def get_committees(case):
         bool_committees_match = [committee.decode('utf-8') in committee_line for committee in committees]
         committees_match = [bool_match*committee for bool_match,committee in zip(bool_committees_match,committees)]
         committees_match = filter(None, committees_match)
-    print committees_match
     return committees_match
 
 def get_date_introduced(case):
     logger.info("finding date introduced")
-    print case
     # date_line = re.search(", n.mero.*", case).group()
     # date = re.search("\w* \d{1,2} de \w* de \d{4}",date_line).group()
     date = None
