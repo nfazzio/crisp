@@ -110,9 +110,6 @@ def get_legislator_info(case):
         if "Congreso" in legislator_line.group():
             legislator_title = re.search("el Congreso .*?\.", legislator_line.group()).group()
         elif u"Cámara" in legislator_line.group():
-            print legislator_line.group()
-            print u"Cámara" in legislator_line.group()
-            print re.search(u"Cámara", legislator_line.group())
             legislator_title = re.search(ur"Cámara .*?\.", legislator_line.group()).group()
         else:
             legislator_title = legislator_line.group('title')
