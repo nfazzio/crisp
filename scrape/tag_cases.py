@@ -43,13 +43,13 @@ def get_cases(soup):
 
 def parse_case(case):
     """Takes in a bill, and returns a dict of it's pertinent information."""
-    #case_dict = dict.fromkeys(['title','legislator_title','legislator','party','date_introduced','committees','outcome','text_url','Gaceta Parlamentaria','links'])
     links = get_links(case)    
-    #extract text of case
+    #Extract text of case.
     case = case.findAll(text=True)
     case = unicode.join(u'\n',map(unicode,case))
-    #remove empty elements
+    #Remove empty elements.
     case = case.strip()
+    #Assign values to dictionary keys
     case_dict={}
     case_dict["title"] = get_title(case)
     (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
@@ -106,7 +106,7 @@ def get_legislator_info(case):
     legislator_party = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
     if legislator_line:
-        # Edge case for when legislator title is a Congreso.
+        # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
             legislator_title = re.search("el Congreso .*?\.", legislator_line.group()).group()
         elif u"Cámara" in legislator_line.group():
@@ -118,11 +118,9 @@ def get_legislator_info(case):
             elif re.search("la diputada *",legislator_title):
                 legislator_gender = "female"
             legislator_party = legislator_line.group('party')
+            #The following split handles the case where there are multiple legislators.
             legislator_name = legislator_line.group('legislator').split(',| y ')
     return (legislator_title, legislator_name, legislator_gender, legislator_party)
-
-#def parse_legislator_name(legislator_line):
-#    if leg
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
@@ -143,6 +141,7 @@ def get_date_introduced(case):
     # date = re.search("\w* \d{1,2} de \w* de \d{4}",date_line).group()
     date = None
     for date in re.finditer(u"\w* \d{1,2} de \w* de \d{4}", case):
+        #Passes through all the dates, so that the final date is stored in the variable.
         pass
     if date != None:
         return date.group()
