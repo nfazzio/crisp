@@ -104,22 +104,25 @@ def get_legislator_info(case):
     legislator_name = ""
     legislator_gender = ""
     legislator_party = ""
-    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,]*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
     if legislator_line:
         # Edge case for when legislator title is a Congreso.
         if "Congreso" in legislator_line.group():
             legislator_title = re.search("el Congreso .*?\.", legislator_line.group()).group()
         elif u"Cámara" in legislator_line.group():
-            legislator_title = re.search(ur"Cámara .*?\.", legislator_line.group()).group()
+            legislator_title = re.search(u"Cámara .*?\.", legislator_line.group()).group()
         else:
             legislator_title = legislator_line.group('title')
-            legislator_name = legislator_line.group('legislator')
             if re.search("el diputado *",legislator_title):
                 legislator_gender = "male"
             elif re.search("la diputada *",legislator_title):
                 legislator_gender = "female"
             legislator_party = legislator_line.group('party')
+            legislator_name = legislator_line.group('legislator').split(',| y ')
     return (legislator_title, legislator_name, legislator_gender, legislator_party)
+
+#def parse_legislator_name(legislator_line):
+#    if leg
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
