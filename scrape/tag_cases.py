@@ -101,7 +101,7 @@ def get_outcome(case):
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, and legislator_party from a bill."""
     legislator_title = ""
-    legislator_name = ""
+    legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
@@ -119,8 +119,9 @@ def get_legislator_info(case):
                 legislator_gender = "female"
             legislator_party = legislator_line.group('party')
             #The following split handles the case where there are multiple legislators.
-            legislator_name = legislator_line.group('legislator').split(',| y ')
-    return (legislator_title, legislator_name, legislator_gender, legislator_party)
+            legislator_names = re.split(',| y ',legislator_line.group('legislator'))
+            legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
+    return (legislator_title, legislator_names, legislator_gender, legislator_party)
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
