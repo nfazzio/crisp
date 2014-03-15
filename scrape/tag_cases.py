@@ -104,13 +104,21 @@ def get_legislator_info(case):
     legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
-    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*?\.)",re.U),unicode(case))
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*),? (?P<party>[^\.]*?\.)",re.U),unicode(case))
+    capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
     if legislator_line:
+        print "examining: " + legislator_line.group()
         # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
-            legislator_title = re.search("el Congreso .*?\.", legislator_line.group()).group()
+            print "found congreso in: "+legislator_line.group()
+            legislator_names = re.search("el Congreso .*?(?=\.)", legislator_line.group()).group()
+            print "legislator name is: " + legislator_names
         elif u"Cámara" in legislator_line.group():
-            legislator_title = re.search(u"Cámara .*?\.", legislator_line.group()).group()
+            print "found camara in: "+legislator_line.group()
+            legislator_names = re.search(u"Cámara .*?(?=(,|\.))", legislator_line.group()).group()
+        elif not any(x in legislator_line.group() for x in capturable_names):
+            print "WEIRD CASE, searching within: " + legislator_line.group()
+            legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
         else:
             legislator_title = legislator_line.group('title')
             if re.search("el diputado *",legislator_title):
