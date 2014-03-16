@@ -53,12 +53,15 @@ def parse_case(case):
     case_dict={}
     case_dict["title"] = get_title(case)
     (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
+    (outcome, floor_outcome, outcome_date) = get_outcome(case)
     case_dict["legislator_title"] = legislator_title
     case_dict["legislator_name"] = legislator_name
     case_dict["legislator_gender"] = legislator_gender
     case_dict["legislator_party"] = legislator_party
     case_dict["committees"] = ', '.join(get_committees(case)).decode('utf-8')
-    case_dict["outcome"] = get_outcome(case)
+    case_dict["outcome"] = outcome
+    case_dict["floor_outcome"] = floor_outcome
+    case_dict["outcome_date"] = outcome_date
     case_dict["date_introduced"] = get_date_introduced(case)
 
     dict_links = []
@@ -92,11 +95,14 @@ def get_title(case):
 def get_outcome(case):
     """Returns the outcome of a case."""
     # TODO FIX
-    outcome_match = re.search(re.compile("(?P<outcome>(Dictaminada|Precluida|Desechada))",re.U),case)
-    outcome = ""
+    outcome_match = re.search(re.compile("""(?P<outcome>(Dictaminada|Precluida|Desechada))\n \
+        (?P<floor_outcome>.*?),?(?P<date>el \w* \d{1,2} de \w* de \d{4})""",re.U),case)
+    outcome, floor_outcome, outcome_date = ['', '', '']
     if outcome_match:
-        outcome = outcome_match.group()
-    return outcome
+        outcome = outcome_match.group('outcome')
+        floor_outcome = outcome_match.group('floor_outcome')
+        outcome_date = outcome_match.group('date')
+    return outcome, floor_outcome, outcome_date
 
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, and legislator_party from a bill."""
@@ -106,18 +112,20 @@ def get_legislator_info(case):
     legislator_party = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*),? (?P<party>[^\.]*?\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
+    if not legislator_line:
+        print "HUGE ERROR - DID NOT PARSE LEGISLATOR LINE" + "\n" + "***********" + "\n" + unicode(case) + "\n" + "***********"
     if legislator_line:
-        print "examining: " + legislator_line.group()
+        #print "examining: " + legislator_line.group()
         # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
-            print "found congreso in: "+legislator_line.group()
+            #print "found congreso in: "+legislator_line.group()
             legislator_names = re.search("el Congreso .*?(?=\.)", legislator_line.group()).group()
-            print "legislator name is: " + legislator_names
+            #print "legislator name is: " + legislator_names
         elif u"Cámara" in legislator_line.group():
-            print "found camara in: "+legislator_line.group()
+            #print "found camara in: "+legislator_line.group()
             legislator_names = re.search(u"Cámara .*?(?=(,|\.))", legislator_line.group()).group()
         elif not any(x in legislator_line.group() for x in capturable_names):
-            print "WEIRD CASE, searching within: " + legislator_line.group()
+            #print "WEIRD CASE, searching within: " + legislator_line.group()
             legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
         else:
             legislator_title = legislator_line.group('title')
@@ -129,6 +137,11 @@ def get_legislator_info(case):
             #The following split handles the case where there are multiple legislators.
             legislator_names = re.split(',| y ',legislator_line.group('legislator'))
             legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
+    else:
+        legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) .*", re.U), unicode(case))
+        if legislator_line:
+            print "WE CAUGHT THE HUGE ERROR" + "\n" + "proposed legislator_line: " + legislator_line.group()
+        else: print "CAN'T PARSE HUGE ERROR" + case
     return (legislator_title, legislator_names, legislator_gender, legislator_party)
 
 def get_committees(case):
@@ -163,7 +176,17 @@ def initialize_output(name):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     date = time.strftime("%Y%m%d")
-    fieldnames = ['title','legislator_title','legislator_name','legislator_gender','legislator_party','date_introduced','committees','outcome','links']
+    fieldnames = ['title',
+                  'legislator_title',
+                  'legislator_name',
+                  'legislator_gender',
+                  'legislator_party',
+                  'date_introduced',
+                  'committees',
+                  'outcome',
+                  'floor_outcome',
+                  'outcome_date',
+                  'links']
     output_file = open(os.path.normpath(os.path.join(output_dir,date+"_"+name+".tsv")),'wb')
     return csv.DictWriter(output_file, fieldnames, delimiter='\t')
 
