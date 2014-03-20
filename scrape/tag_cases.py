@@ -25,6 +25,7 @@ def main():
 
     #url to parse 
     page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
+    #page = open(os.path.join(os.path.abspath('downloads'),'test.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
     cases = get_cases(soup)
@@ -95,10 +96,13 @@ def get_title(case):
 def get_outcome(case):
     """Returns the outcome of a case."""
     # TODO FIX
-    outcome_match = re.search(re.compile("""(?P<outcome>(Dictaminada|Precluida|Desechada))\n \
-        (?P<floor_outcome>.*?),?(?P<date>el \w* \d{1,2} de \w* de \d{4})""",re.U),case)
+    print case
     outcome, floor_outcome, outcome_date = ['', '', '']
+    outcome_match = re.search(re.compile('(?P<outcome>(Dictaminada|Precluida|Desechada))\n'
+                                         '(?P<floor_outcome>.*?),? '
+                                         '(?P<date>el \w* \d{1,2} de \w* de \d{4})',re.U),case)
     if outcome_match:
+        print "WE HAVE A MATCH!"
         outcome = outcome_match.group('outcome')
         floor_outcome = outcome_match.group('floor_outcome')
         outcome_date = outcome_match.group('date')
@@ -110,8 +114,20 @@ def get_legislator_info(case):
     legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
-    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los)? [\S]*)\s(?P<legislator>[^,].*),? (?P<party>[^\.]*?\.)",re.U),unicode(case))
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los) [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
+    # Edge case for when presented to "Ejecutivo federal"
+    '''if not legislator_line:
+        legislator_line = re.search("Presentada por el Ejecutivo federal\. ?\n", case)
+        if legislator_line:
+            break
+        legislator_line = re.search("Presentada por el Congreso de Guanajuato", case)
+
+        print "EJECUTIVO CAPTURE"
+        print legislator_line'''
+    if not legislator_line:
+        legislator_names = legislator_edge_cases(case)
+        return (legislator_title, legislator_names, legislator_gender, legislator_party)
     if not legislator_line:
         print "HUGE ERROR - DID NOT PARSE LEGISLATOR LINE" + "\n" + "***********" + "\n" + unicode(case) + "\n" + "***********"
     if legislator_line:
@@ -124,6 +140,9 @@ def get_legislator_info(case):
         elif u"Cámara" in legislator_line.group():
             #print "found camara in: "+legislator_line.group()
             legislator_names = re.search(u"Cámara .*?(?=(,|\.))", legislator_line.group()).group()
+        elif "Ejecutivo federal." in legislator_line.group():
+            print "EJECUTIVO ASSIGNMENT"
+            legislator_names = "el Ejecutivo federal"
         elif not any(x in legislator_line.group() for x in capturable_names):
             #print "WEIRD CASE, searching within: " + legislator_line.group()
             legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
@@ -143,6 +162,19 @@ def get_legislator_info(case):
             print "WE CAUGHT THE HUGE ERROR" + "\n" + "proposed legislator_line: " + legislator_line.group()
         else: print "CAN'T PARSE HUGE ERROR" + case
     return (legislator_title, legislator_names, legislator_gender, legislator_party)
+
+def legislator_edge_cases(case):
+    """Returns legislator_names matches for various edge cases"""
+    print "EDGE CASE"
+    edge_patterns = ["(?:Presentada por el )(Ejecutivo federal)(?:\. ?\n)",
+                     "(?:Presentada por el )(Congreso de Guanajuato)"]
+    for pattern in edge_patterns:
+        match = re.search(pattern, case)
+        if match:
+            print "RETURNING "+match.group()
+            return match.group(1)
+
+    return ""
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
