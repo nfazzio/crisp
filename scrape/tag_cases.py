@@ -1,7 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import os
-import urllib2
 import csv
 import time
 import logging
@@ -34,8 +32,6 @@ def main():
     tsv_out = initialize_output('test')
     tsv_out.writeheader()
     for dictionary in case_dict_list:
-        # print {k: v.encode('utf8') for (k, v) in dictionary.items()}
-        # tsv_out.writerow({k: v.encode('utf8') for (k, v) in dictionary.items()})
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
 
 def get_cases(soup):
@@ -95,14 +91,12 @@ def get_title(case):
 
 def get_outcome(case):
     """Returns the outcome of a case."""
-    # TODO FIX
-    print case
+    # print case
     outcome, floor_outcome, outcome_date = ['', '', '']
     outcome_match = re.search(re.compile('(?P<outcome>(Dictaminada|Precluida|Desechada))\n'
                                          '(?P<floor_outcome>.*?),? '
                                          '(?P<date>el \w* \d{1,2} de \w* de \d{4})',re.U),case)
     if outcome_match:
-        print "WE HAVE A MATCH!"
         outcome = outcome_match.group('outcome')
         floor_outcome = outcome_match.group('floor_outcome')
         outcome_date = outcome_match.group('date')
@@ -165,15 +159,20 @@ def get_legislator_info(case):
 
 def legislator_edge_cases(case):
     """Returns legislator_names matches for various edge cases"""
-    print "EDGE CASE"
+    print "EDGE CASE: "+case
+    case = strip_accents(case)
     edge_patterns = ["(?:Presentada por el )(Ejecutivo federal)(?:\. ?\n)",
-                     "(?:Presentada por el )(Congreso de Guanajuato)"]
+                     "(?:Presentada por el )(Congreso del? .*)(?:\.)",
+                     re.compile("(?:Enviada por la )(Camara de Senadores)(?:\.)",re.U)]
     for pattern in edge_patterns:
         match = re.search(pattern, case)
         if match:
             print "RETURNING "+match.group()
             return match.group(1)
-
+    print "RETURNING NOTHING"
+    print "BUT SRSLY: THIS IS THE CASE :"
+    for line_num, line in enumerate(case.split("\n")):
+        print str(line_num) + ": " + line
     return ""
 
 def get_committees(case):
