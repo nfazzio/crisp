@@ -108,7 +108,10 @@ def get_legislator_info(case):
     legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
-    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por (?P<title>(la|las|el|los) [\S]*)\s(?P<legislator>[^,].*), (?P<party>[^\.]*\.)",re.U),unicode(case))
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
+                                           "(?P<title>(la|las|el|los) [\S]*)\s"
+                                           "(?P<legislator>[^,].*)(,| y) "
+                                           "(?P<party>[^\.]*\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
     # Edge case for when presented to "Ejecutivo federal"
     '''if not legislator_line:
@@ -120,7 +123,7 @@ def get_legislator_info(case):
         print "EJECUTIVO CAPTURE"
         print legislator_line'''
     if not legislator_line:
-        legislator_names = legislator_edge_cases(case)
+        legislator_title, legislator_names = legislator_edge_cases(case)
         return (legislator_title, legislator_names, legislator_gender, legislator_party)
     if not legislator_line:
         print "HUGE ERROR - DID NOT PARSE LEGISLATOR LINE" + "\n" + "***********" + "\n" + unicode(case) + "\n" + "***********"
@@ -163,17 +166,23 @@ def legislator_edge_cases(case):
     case = strip_accents(case)
     edge_patterns = ["(?:Presentada por el )(Ejecutivo federal)(?:\. ?\n)",
                      "(?:Presentada por el )(Congreso del? .*)(?:\.)",
-                     re.compile("(?:Enviada por la )(Camara de Senadores)(?:\.)",re.U)]
+                     "(?:Enviada por la )(Camara de Senadores)(?:\.)",
+                     "(?:Presentada por )(coordinadores de diversos grupos parlamentarios)(?:\.)"]
     for pattern in edge_patterns:
         match = re.search(pattern, case)
         if match:
             print "RETURNING "+match.group()
-            return match.group(1)
+            return "",match.group(1)
+    #very general pattern for oddly formatted title, name
+    pattern = "(Presentada|Enviad[oa] por )(?P<title>(el|la|los|las)? [\S]*) (?P<name>.*)\."
+    match = re.search(pattern, case)
+    if match:
+        return match.group('title','name')
     print "RETURNING NOTHING"
     print "BUT SRSLY: THIS IS THE CASE :"
     for line_num, line in enumerate(case.split("\n")):
         print str(line_num) + ": " + line
-    return ""
+    return "",""
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
