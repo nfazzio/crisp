@@ -51,6 +51,7 @@ def parse_case(case):
     case_dict["title"] = get_title(case)
     (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
     (outcome, floor_outcome, outcome_date) = get_outcome(case)
+    (returned_to, returned_to_article) = get_returned_to(case)
     case_dict["legislator_title"] = legislator_title
     case_dict["legislator_name"] = legislator_name
     case_dict["legislator_gender"] = legislator_gender
@@ -60,6 +61,8 @@ def parse_case(case):
     case_dict["floor_outcome"] = floor_outcome
     case_dict["outcome_date"] = outcome_date
     case_dict["date_introduced"] = get_date_introduced(case)
+    case_dict["returned_to"] = returned_to
+    case_dict["returned_to_article"] = returned_to_article
 
     dict_links = []
     for text,url in links.iteritems():
@@ -71,7 +74,6 @@ def parse_case(case):
 
 def get_links(case):
     """Returns all links from a bill."""
-    #returns a dictionary of the links contained within the case
     links={}
     logger.info("retrieving links in case")
     textURL = case.findAll('a', href=True)
@@ -91,7 +93,6 @@ def get_title(case):
 
 def get_outcome(case):
     """Returns the outcome of a case."""
-    # print case
     outcome, floor_outcome, outcome_date = ['', '', '']
     outcome_match = re.search(re.compile('(?P<outcome>(Dictaminada|Precluida|Desechada))\n'
                                          '(?P<floor_outcome>.*?),? '
@@ -113,56 +114,42 @@ def get_legislator_info(case):
                                            "(?P<legislator>[^,].*)(,| y) "
                                            "(?P<party>[^\.]*\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
-    # Edge case for when presented to "Ejecutivo federal"
-    '''if not legislator_line:
-        legislator_line = re.search("Presentada por el Ejecutivo federal\. ?\n", case)
-        if legislator_line:
-            break
-        legislator_line = re.search("Presentada por el Congreso de Guanajuato", case)
-
-        print "EJECUTIVO CAPTURE"
-        print legislator_line'''
+    # If the legislator_line does not match the most common pattern
     if not legislator_line:
-        legislator_title, legislator_names = legislator_edge_cases(case)
+        legislator_title, legislator_names, legislator_gender = legislator_edge_cases(case)
         return (legislator_title, legislator_names, legislator_gender, legislator_party)
-    if not legislator_line:
-        print "HUGE ERROR - DID NOT PARSE LEGISLATOR LINE" + "\n" + "***********" + "\n" + unicode(case) + "\n" + "***********"
     if legislator_line:
-        #print "examining: " + legislator_line.group()
         # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
-            #print "found congreso in: "+legislator_line.group()
             legislator_names = re.search("el Congreso .*?(?=\.)", legislator_line.group()).group()
-            #print "legislator name is: " + legislator_names
         elif u"Cámara" in legislator_line.group():
-            #print "found camara in: "+legislator_line.group()
             legislator_names = re.search(u"Cámara .*?(?=(,|\.))", legislator_line.group()).group()
         elif "Ejecutivo federal." in legislator_line.group():
-            print "EJECUTIVO ASSIGNMENT"
             legislator_names = "el Ejecutivo federal"
         elif not any(x in legislator_line.group() for x in capturable_names):
-            #print "WEIRD CASE, searching within: " + legislator_line.group()
             legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
         else:
             legislator_title = legislator_line.group('title')
-            if re.search("el diputado *",legislator_title):
-                legislator_gender = "male"
-            elif re.search("la diputada *",legislator_title):
-                legislator_gender = "female"
+            legislator_gender = get_legislator_gender(legislator_title)
             legislator_party = legislator_line.group('party')
             #The following split handles the case where there are multiple legislators.
             legislator_names = re.split(',| y ',legislator_line.group('legislator'))
             legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
     else:
         legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) .*", re.U), unicode(case))
-        if legislator_line:
-            print "WE CAUGHT THE HUGE ERROR" + "\n" + "proposed legislator_line: " + legislator_line.group()
-        else: print "CAN'T PARSE HUGE ERROR" + case
     return (legislator_title, legislator_names, legislator_gender, legislator_party)
+
+def get_legislator_gender(legislator_title):
+    legislator_title = ""
+    if re.search("el diputado *",legislator_title):
+        legislator_gender = "male"
+    elif re.search("la diputada *",legislator_title):
+        legislator_gender = "female"
+    return legislator_title
 
 def legislator_edge_cases(case):
     """Returns legislator_names matches for various edge cases"""
-    print "EDGE CASE: "+case
+    legislator_title,legislator_name,legislator_gender = "", "", ""
     case = strip_accents(case)
     edge_patterns = ["(?:Presentada por el )(Ejecutivo federal)(?:\. ?\n)",
                      "(?:Presentada por el )(Congreso del? .*)(?:\.)",
@@ -171,18 +158,16 @@ def legislator_edge_cases(case):
     for pattern in edge_patterns:
         match = re.search(pattern, case)
         if match:
-            print "RETURNING "+match.group()
-            return "",match.group(1)
+            legislator_name = match.group(1)
+            return legislator_title, legislator_name, legislator_gender
     #very general pattern for oddly formatted title, name
     pattern = "(Presentada|Enviad[oa] por )(?P<title>(el|la|los|las)? [\S]*) (?P<name>.*)\."
     match = re.search(pattern, case)
     if match:
-        return match.group('title','name')
-    print "RETURNING NOTHING"
-    print "BUT SRSLY: THIS IS THE CASE :"
-    for line_num, line in enumerate(case.split("\n")):
-        print str(line_num) + ": " + line
-    return "",""
+        (legislator_title, legislator_name) = match.group('title','name')
+        legislator_gender = get_legislator_gender(legislator_title)
+        return legislator_title, legislator_name, legislator_gender
+    return legislator_title, legislator_name, legislator_gender
 
 def get_committees(case):
     """Provide a list of subcommittees that a bill was passed to."""
@@ -195,6 +180,34 @@ def get_committees(case):
         committees_match = [bool_match*committee for bool_match,committee in zip(bool_committees_match,committees)]
         committees_match = filter(None, committees_match)
     return committees_match
+
+def get_returned_to(case):
+    """Provide a two lists for each 'Devuelta' line.
+    The first is who the bill was returned to.
+    The second is the article reference."""
+    case = strip_accents(case)
+    pattern = re.compile("(?:Devuelta\n a la )"
+                         "(?P<returned_to>.*?)"
+                         "(?: para los efectos de lo dispuesto en el )"
+                         "(?P<returned_to_article>.*?)"
+                         "(?:\.)")
+    returned_matches = [m.groupdict() for m in pattern.finditer(case)]
+    if returned_matches:
+        print case
+        print "got matches!"
+        print returned_matches
+        print returned_matches[0]
+        print type(returned_matches[0])
+        returned_to, returned_to_article = [],[]
+        #returned_to = returned_matches[0]['returned_to']
+        #returned_to_article = returned_matches[0]['returned_to_article']
+        
+        for returned_match in returned_matches:
+            print returned_match
+            returned_to.append(returned_match['returned_to'])
+            returned_to_article.append(returned_match['returned_to_article'])
+        return returned_to, returned_to_article
+    return "",""
 
 def get_date_introduced(case):
     """Returns the date that a bill was introduced"""
@@ -225,6 +238,8 @@ def initialize_output(name):
                   'committees',
                   'outcome',
                   'floor_outcome',
+                  'returned_to',
+                  'returned_to_article',
                   'outcome_date',
                   'links']
     output_file = open(os.path.normpath(os.path.join(output_dir,date+"_"+name+".tsv")),'wb')
