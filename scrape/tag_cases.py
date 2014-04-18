@@ -140,12 +140,12 @@ def get_legislator_info(case):
     return (legislator_title, legislator_names, legislator_gender, legislator_party)
 
 def get_legislator_gender(legislator_title):
-    legislator_title = ""
+    legislator_gender = ""
     if re.search("el diputado *",legislator_title):
         legislator_gender = "male"
     elif re.search("la diputada *",legislator_title):
         legislator_gender = "female"
-    return legislator_title
+    return legislator_gender
 
 def legislator_edge_cases(case):
     """Returns legislator_names matches for various edge cases"""
