@@ -22,7 +22,7 @@ def main():
     parser = set_up_parser()
 
     #url to parse 
-    page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
+    page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'test.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
@@ -93,15 +93,19 @@ def get_title(case):
 
 def get_outcome(case):
     """Returns the outcome of a case."""
-    outcome, floor_outcome, outcome_date = ['', '', '']
-    outcome_match = re.search(re.compile('(?P<outcome>(Dictaminada|Precluida|Desechada))\n'
-                                         '(?P<floor_outcome>.*?),? '
-                                         '(?P<date>el \w* \d{1,2} de \w* de \d{4})',re.U),case)
-    if outcome_match:
-        outcome = outcome_match.group('outcome')
-        floor_outcome = outcome_match.group('floor_outcome')
-        outcome_date = outcome_match.group('date')
-    return outcome, floor_outcome, outcome_date
+    case = strip_accents(case)
+    pattern = re.compile('(?P<outcome>(Dictaminada|Precluida|Desechada))\n'
+                         '(?P<floor_outcome>.*?),? '
+                         '(?P<date>el \w* \d{1,2} de \w* de \d{4})',re.U)
+    returned_matches = [m.groupdict() for m in pattern.finditer(case)]
+    if returned_matches:
+        outcome, floor_outcome, outcome_date = [], [], []
+        for returned_match in returned_matches:
+            outcome.append(returned_match['outcome'])
+            floor_outcome.append(returned_match['floor_outcome'])
+            outcome_date.append(returned_match['date'])
+        return outcome, floor_outcome, outcome_date
+    return "","",""
 
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, and legislator_party from a bill."""
@@ -112,7 +116,7 @@ def get_legislator_info(case):
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
                                            "(?P<title>(la|las|el|los) [\S]*)\s"
                                            "(?P<legislator>[^,].*)(,| y) "
-                                           "(?P<party>[^\.]*\.)",re.U),unicode(case))
+                                           "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
     # If the legislator_line does not match the most common pattern
     if not legislator_line:
