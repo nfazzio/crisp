@@ -143,7 +143,7 @@ def get_legislator_gender(legislator_title):
     legislator_gender = ""
     if re.search("el diputado *",legislator_title):
         legislator_gender = "male"
-    elif re.search("la diputada *",legislator_title):
+    elif re.search("las? diputadas? *",legislator_title):
         legislator_gender = "female"
     return legislator_gender
 
