@@ -199,9 +199,8 @@ def get_returned_to(case):
                          "(?P<returned_to_article>.*?)"
                          "(?:\.)"
                          "(?: \(Minuta \n)?"
-                         "(?P<returned_to_minutes>.*?)\n, "
-                         "(?P<returned_to_minutes_date>.*?\))"
-                         "(?:\))?"
+                         "(?P<returned_to_minutes>.*?\w)?\n,? ?"
+                         "(?P<returned_to_minutes_date>.*\d)?"
                         )
     returned_matches = [m.groupdict() for m in pattern.finditer(case)]
     if returned_matches:
