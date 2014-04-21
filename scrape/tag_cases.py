@@ -23,7 +23,7 @@ def main():
 
     #url to parse 
     page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
-    #page = open(os.path.join(os.path.abspath('downloads'),'test.html'))
+    #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
     cases = get_cases(soup)
@@ -51,7 +51,7 @@ def parse_case(case):
     case_dict["title"] = get_title(case)
     (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
     (outcome, floor_outcome, outcome_date) = get_outcome(case)
-    (returned_to, returned_to_article) = get_returned_to(case)
+    (returned_to, returned_to_article, returned_to_minutes, returned_to_minutes_date) = get_returned_to(case)
     case_dict["legislator_title"] = legislator_title
     case_dict["legislator_name"] = legislator_name
     case_dict["legislator_gender"] = legislator_gender
@@ -63,6 +63,8 @@ def parse_case(case):
     case_dict["date_introduced"] = get_date_introduced(case)
     case_dict["returned_to"] = returned_to
     case_dict["returned_to_article"] = returned_to_article
+    case_dict["returned_to_minutes"] = returned_to_minutes
+    case_dict["returned_to_minutes_date"] = returned_to_minutes_date
 
     dict_links = []
     for text,url in links.iteritems():
@@ -83,7 +85,7 @@ def get_links(case):
 
 def remove_nulls(dictionary):
     """Replace null/empty values with NA to make output compatible with R."""
-    dictionary = {key:("NA" if value in ('', None) else value) for (key,value) in dictionary.iteritems()}
+    dictionary = {key:("NA" if value in ('', None, [], [u'']) else value) for (key,value) in dictionary.iteritems()}
     return dictionary
 
 def get_title(case):
@@ -190,28 +192,34 @@ def get_returned_to(case):
     The first is who the bill was returned to.
     The second is the article reference."""
     case = strip_accents(case)
+    pattern_test = re.compile("Devuelta\n a la .*")
     pattern = re.compile("(?:Devuelta\n a la )"
                          "(?P<returned_to>.*?)"
                          "(?: para los efectos de lo dispuesto en el )"
                          "(?P<returned_to_article>.*?)"
-                         "(?:\.)")
+                         "(?:\.)"
+                         "(?: \(Minuta \n)?"
+                         "(?P<returned_to_minutes>.*?)\n, "
+                         "(?P<returned_to_minutes_date>.*?\))"
+                         "(?:\))?"
+                        )
     returned_matches = [m.groupdict() for m in pattern.finditer(case)]
     if returned_matches:
-        print case
-        print "got matches!"
-        print returned_matches
-        print returned_matches[0]
-        print type(returned_matches[0])
-        returned_to, returned_to_article = [],[]
+        returned_to, returned_to_article, returned_to_minutes, returned_to_minutes_date = [],[],[],[]
         #returned_to = returned_matches[0]['returned_to']
         #returned_to_article = returned_matches[0]['returned_to_article']
         
         for returned_match in returned_matches:
-            print "returned match: " + str(returned_match)
             returned_to.append(returned_match['returned_to'])
             returned_to_article.append(returned_match['returned_to_article'])
-        return returned_to, returned_to_article
-    return "",""
+            returned_to_minutes.append(returned_match['returned_to_minutes'])
+            returned_to_minutes_date.append(returned_match['returned_to_minutes_date'])
+        
+        # Clean up empty entries
+        returned_to_minutes = [x for x in returned_to_minutes if x!=u'']
+        returned_to_minutes_date = [x for x in returned_to_minutes_date if x!=u'']
+        return returned_to, returned_to_article, returned_to_minutes, returned_to_minutes_date
+    return None,None,None,None
 
 def get_date_introduced(case):
     """Returns the date that a bill was introduced"""
@@ -244,6 +252,8 @@ def initialize_output(name):
                   'floor_outcome',
                   'returned_to',
                   'returned_to_article',
+                  'returned_to_minutes',
+                  'returned_to_minutes_date',
                   'outcome_date',
                   'links']
     output_file = open(os.path.normpath(os.path.join(output_dir,date+"_"+name+".tsv")),'wb')
