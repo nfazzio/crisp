@@ -117,7 +117,7 @@ def get_legislator_info(case):
     legislator_party = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
                                            "(?P<title>(la|las|el|los) [\S]*)\s"
-                                           "(?P<legislator>[^,].*)(,| y) "
+                                           "(?P<legislator>[^,].*?)(,| y) "
                                            "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
     # If the legislator_line does not match the most common pattern
@@ -199,9 +199,8 @@ def get_returned_to(case):
                          "(?P<returned_to_article>.*?)"
                          "(?:\.)"
                          "(?: \(Minuta \n)?"
-                         "(?P<returned_to_minutes>.*?)\n, "
-                         "(?P<returned_to_minutes_date>.*?\))"
-                         "(?:\))?"
+                         "(?P<returned_to_minutes>.*?\w)?\n,? ?"
+                         "(?P<returned_to_minutes_date>.*\d)?"
                         )
     returned_matches = [m.groupdict() for m in pattern.finditer(case)]
     if returned_matches:
