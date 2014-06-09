@@ -22,7 +22,7 @@ def main():
     parser = set_up_parser()
 
     #url to parse 
-    page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
+    page = open(os.path.join(os.path.abspath('downloads/testing'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
