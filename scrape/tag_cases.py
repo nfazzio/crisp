@@ -20,9 +20,19 @@ with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
 def main():
     #TODO Finish setting up option parser
     parser = set_up_parser()
-
-    #url to parse 
-    page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
+    '''
+    for filename in os.listdir(os.path.abspath('downloads/iniciativas')):
+        with open(os.path.abspath('downloads/iniciativas/'+filename)) as page:
+            soup = BeautifulSoup(page, "lxml")
+            strip_comments(soup)
+            cases = get_cases(soup)
+            case_dict_list = [parse_case(case) for case in cases]
+            tsv_out = initialize_output(os.path.basename(filename))
+            tsv_out.writeheader()
+            for dictionary in case_dict_list:
+                tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
+    ''' 
+    page = open(os.path.join(os.path.abspath('downloads/iniciativas'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
@@ -33,6 +43,7 @@ def main():
     tsv_out.writeheader()
     for dictionary in case_dict_list:
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
+    
 
 def get_cases(soup):
     """Returns all bills from an html page."""
@@ -113,6 +124,7 @@ def get_outcome(case):
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, legislator_party, and suscrita from a bill."""
     # This is pretty ugly and needs to be refactored.
+    print case
     legislator_title = ""
     legislator_names = ""
     legislator_gender = ""
@@ -255,7 +267,7 @@ def get_date_introduced(case):
 
 def initialize_output(name):
     """creates a DictWriter that writes the output tsv"""
-    output_dir = os.path.abspath('output')
+    output_dir = os.path.abspath('output/parsed')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     date = time.strftime("%Y%m%d")
