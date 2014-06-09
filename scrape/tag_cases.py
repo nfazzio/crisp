@@ -22,7 +22,7 @@ def main():
     parser = set_up_parser()
 
     #url to parse 
-    page = open(os.path.join(os.path.abspath('downloads'),'gp62_a1primero.html'))
+    page = open(os.path.join(os.path.abspath('downloads/testing'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
@@ -49,13 +49,14 @@ def parse_case(case):
     #Assign values to dictionary keys
     case_dict={}
     case_dict["title"] = get_title(case)
-    (legislator_title, legislator_name, legislator_gender, legislator_party) = get_legislator_info(case)
+    (legislator_title, legislator_name, legislator_gender, legislator_party, suscrita) = get_legislator_info(case)
     (outcome, floor_outcome, outcome_date) = get_outcome(case)
     (returned_to, returned_to_article, returned_to_minutes, returned_to_minutes_date) = get_returned_to(case)
     case_dict["legislator_title"] = legislator_title
     case_dict["legislator_name"] = legislator_name
     case_dict["legislator_gender"] = legislator_gender
     case_dict["legislator_party"] = legislator_party
+    case_dict["suscrita"] = suscrita
     case_dict["committees"] = ', '.join(get_committees(case)).decode('utf-8')
     case_dict["outcome"] = outcome
     case_dict["floor_outcome"] = floor_outcome
@@ -110,20 +111,22 @@ def get_outcome(case):
     return "","",""
 
 def get_legislator_info(case):
-    """Returns legislator title, legislator, legislator_gender, and legislator_party from a bill."""
+    """Returns legislator title, legislator, legislator_gender, legislator_party, and suscrita from a bill."""
+    # This is pretty ugly and needs to be refactored.
     legislator_title = ""
     legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
+    suscrita = ""
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
                                            "(?P<title>(la|las|el|los) [\S]*)\s"
-                                           "(?P<legislator>[^,].*?)(,| y) "
+                                           "(?P<legislator>[^,].*), "
                                            "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
     # If the legislator_line does not match the most common pattern
     if not legislator_line:
         legislator_title, legislator_names, legislator_gender = legislator_edge_cases(case)
-        return (legislator_title, legislator_names, legislator_gender, legislator_party)
+        return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
     if legislator_line:
         # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
@@ -143,7 +146,23 @@ def get_legislator_info(case):
             legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
     else:
         legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) .*", re.U), unicode(case))
-    return (legislator_title, legislator_names, legislator_gender, legislator_party)
+
+    legislator_party, suscrita = get_suscrita(legislator_party)
+    return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
+
+def get_suscrita(legislator_party):
+    """Separates out the suscrita poriton from the party variable. This is
+    necessary because the regex was getting horribly indecipherable."""
+    suscrita = ""
+    match = re.search("(?:y suscrita )(?P<suscrita>.*)", legislator_party)
+    print legislator_party
+    if match:
+        print "we got a match!"
+        leg_match = re.search("(?P<legislator_party>.*?)(?:;)", legislator_party)
+        legislator_party = leg_match.group("legislator_party")
+        suscrita = match.group("suscrita")
+        print suscrita
+    return legislator_party, suscrita
 
 def get_legislator_gender(legislator_title):
     legislator_gender = ""
@@ -245,6 +264,7 @@ def initialize_output(name):
                   'legislator_name',
                   'legislator_gender',
                   'legislator_party',
+                  'suscrita',
                   'date_introduced',
                   'committees',
                   'outcome',
