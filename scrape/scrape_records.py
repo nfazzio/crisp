@@ -25,15 +25,18 @@ def download_iniciativa(link, base_url):
     if (link == '57/gp57_iniciativas.html') or ('mailto' in link):
         print "skipping " + base_url+link
         return
-    iniciativas = urllib2.urlopen(base_url+link)
-    soup = bs(iniciativas)
+    iniciativas = urllib2.urlopen(str(base_url+link))
+    #soup = bs(iniciativas)
+    #print iniciativas.read()
     filename = os.path.basename(link)
     print filename
     iniciativa_html = os.path.join('downloads/iniciativas', filename)
 
     with open(iniciativa_html, 'w+') as iniciativa:
         #iniciativa.write(str(soup))
-        buffered_download(iniciativas, iniciativa)
+        #buffered_download(iniciativas, iniciativa)
+        #print iniciativas.read()
+        iniciativa.write(iniciativas.read())
 
 def buffered_download(page, path):
     meta = page.info()
@@ -44,6 +47,7 @@ def buffered_download(page, path):
     block_sz = 8192
     while True:
         buffer = page.read(block_sz)
+        buffer = buffer.encode('utf-8')
         if not buffer:
             break
 
