@@ -30,9 +30,9 @@ def main():
             tsv_out = initialize_output(os.path.basename(filename))
             tsv_out.writeheader()
             for dictionary in case_dict_list:
-                tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
+                tsv_out.writerow({k: strip_accents(unicode(v)).encode('utf-8') for (k, v) in dictionary.iteritems()})
     ''' 
-    page = open(os.path.join(os.path.abspath('downloads/iniciativas'),'gp62_a1primero.html'))
+    page = open(os.path.join(os.path.abspath('downloads/testing'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
     strip_comments(soup)
@@ -124,7 +124,6 @@ def get_outcome(case):
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, legislator_party, and suscrita from a bill."""
     # This is pretty ugly and needs to be refactored.
-    print case
     legislator_title = ""
     legislator_names = ""
     legislator_gender = ""
@@ -148,7 +147,14 @@ def get_legislator_info(case):
         elif "Ejecutivo federal." in legislator_line.group():
             legislator_names = "el Ejecutivo federal"
         elif not any(x in legislator_line.group() for x in capturable_names):
-            legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
+            # Assume no legislator title
+            print "absolute crazy case"
+            print legislator_line.group()
+            print legislator_line.group('title')
+            print legislator_line.group('legislator')
+            print legislator_line.group('party')
+            #legislator_names = re.search("(presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
+            return legislator_edge_no_title(case)
         else:
             legislator_title = legislator_line.group('title')
             legislator_gender = get_legislator_gender(legislator_title)
@@ -159,6 +165,21 @@ def get_legislator_info(case):
     else:
         legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) .*", re.U), unicode(case))
 
+    legislator_party, suscrita = get_suscrita(legislator_party)
+    return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
+
+def legislator_edge_no_title(case):
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
+                                           "(?P<title>(la|las|el|los)).*"
+                                           "(?P<legislator>[^,].*), "
+                                           "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
+    print legislator_line.group()
+    legislator_title = "ERROR"
+    legislator_name = legislator_line.group('title')
+    legislator_gender = get_legislator_gender(legislator_title)
+    legislator_party = legislator_line.group('party')
+    legislator_names = re.split(',| y ',legislator_line.group('legislator'))
+    legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
     legislator_party, suscrita = get_suscrita(legislator_party)
     return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
 
@@ -178,9 +199,9 @@ def get_suscrita(legislator_party):
 
 def get_legislator_gender(legislator_title):
     legislator_gender = ""
-    if re.search("el diputado *",legislator_title):
+    if re.search("^el *",legislator_title):
         legislator_gender = "male"
-    elif re.search("las? diputadas? *",legislator_title):
+    elif re.search("^las? ",legislator_title):
         legislator_gender = "female"
     return legislator_gender
 
