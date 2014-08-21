@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup, Comment
 import argparse
 import itertools
 import unicodedata
+import sys
 
 logger = logging.getLogger(__name__)
 with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
@@ -20,8 +21,24 @@ with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
 def main():
     #TODO Finish setting up option parser
     parser = set_up_parser()
+<<<<<<< HEAD
 
     #url to parse 
+=======
+    '''
+    for filename in os.listdir(os.path.abspath('downloads/iniciativas')):
+        with open(os.path.abspath('downloads/iniciativas/'+filename)) as page:
+            print "HELLA: "+filename
+            soup = BeautifulSoup(page, "lxml")
+            strip_comments(soup)
+            cases = get_cases(soup)
+            case_dict_list = [parse_case(case) for case in cases]
+            tsv_out = initialize_output(os.path.basename(filename))
+            tsv_out.writeheader()
+            for dictionary in case_dict_list:
+                tsv_out.writerow({k: strip_accents(unicode(v)).encode('utf-8') for (k, v) in dictionary.iteritems()})
+    '''
+>>>>>>> multiple_files
     page = open(os.path.join(os.path.abspath('downloads/testing'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
@@ -33,6 +50,7 @@ def main():
     tsv_out.writeheader()
     for dictionary in case_dict_list:
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
+    
 
 def get_cases(soup):
     """Returns all bills from an html page."""
@@ -113,30 +131,61 @@ def get_outcome(case):
 def get_legislator_info(case):
     """Returns legislator title, legislator, legislator_gender, legislator_party, and suscrita from a bill."""
     # This is pretty ugly and needs to be refactored.
+    #print "---------------------------\n"+case
     legislator_title = ""
     legislator_names = ""
     legislator_gender = ""
     legislator_party = ""
     suscrita = ""
+    parties = "(PRD|PVEM|Movimiento Ciudadano|PRI|PAN|PT|Nueva Alianza|" \
+              "Convergencia)"
+
+    #Remove the 'en nombre' clause from the legislator_line because it is not
+    #being caputred and messes up pattern matching.
+    case = remove_en_nombre(case)
     legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
                                            "(?P<title>(la|las|el|los) [\S]*)\s"
-                                           "(?P<legislator>[^,].*), "
+                                           "(?P<legislator>[^,].*), (del)?"
                                            "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
     capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
+
+    #edge case for when no party is assigned to legslators before suscrita clause
+    print case
+    if re.search('(Presentada|Enviad(o|a)) por .* suscrita', case):
+        for party in parties[1:-1].split('|'):
+            party_before_suscrita = False
+            if re.search(party + '.* suscrita', case):
+                party_before_suscrita = True
+                break
+        if not party_before_suscrita:
+            return legislator_edge_no_party(case)
+
     # If the legislator_line does not match the most common pattern
     if not legislator_line:
         legislator_title, legislator_names, legislator_gender = legislator_edge_cases(case)
         return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
     if legislator_line:
+        print repr(case)
+        #Edge case for when a comma, and not a semicolon, is used after the party
+        party_exception = re.compile('(Presentada|Enviad(o|a)) por .*, (del )?' + parties + ',.*')
+        if re.search(party_exception, case):
+            return legislator_edge_funky_commas(case)
+
         # Edge case for when legislator title is a Congreso or Cámara.
         if "Congreso" in legislator_line.group():
-            legislator_names = re.search("el Congreso .*?(?=\.)", legislator_line.group()).group()
+            legislator_names = re.search("el Congreso .*?(?=(\.|,\s?\n))", legislator_line.group()).group()
         elif u"Cámara" in legislator_line.group():
             legislator_names = re.search(u"Cámara .*?(?=(,|\.))", legislator_line.group()).group()
         elif "Ejecutivo federal." in legislator_line.group():
             legislator_names = "el Ejecutivo federal"
         elif not any(x in legislator_line.group() for x in capturable_names):
-            legislator_names = re.search("(?<=presentad[aos]{1-3} por) .*?(?=(\.|\,))", legislator_line.group()).group()
+            # Assume no legislator title
+            print "absolute crazy case"
+            print legislator_line.group()
+            print legislator_line.group('title')
+            print legislator_line.group('legislator')
+            print legislator_line.group('party')
+            return legislator_edge_no_title(case)
         else:
             legislator_title = legislator_line.group('title')
             legislator_gender = get_legislator_gender(legislator_title)
@@ -144,31 +193,132 @@ def get_legislator_info(case):
             #The following split handles the case where there are multiple legislators.
             legislator_names = re.split(',| y ',legislator_line.group('legislator'))
             legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
-    else:
-        legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) .*", re.U), unicode(case))
 
-    legislator_party, suscrita = get_suscrita(legislator_party)
+    print "PRE SUSCRITA:\n"
+    print "title: "+legislator_line.group('title')
+    print "legislator: "+legislator_line.group('legislator')
+    print "party: " +legislator_line.group('party')
+    print "--------"
+
+    legislator_party, suscrita = get_suscrita(legislator_party,case)
     return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
 
-def get_suscrita(legislator_party):
+def remove_en_nombre(case):
+    """ Remove the tricky 'en nombre' segment that pops up in several cases"""
+    print "LOG: en nombre removed"
+    print "CASE BEFORE: " + case
+    print "-------------------------"
+    case = re.sub(' (a|en) nombre .*(?= y suscrit)?', '', case)
+    return case
+
+def legislator_edge_no_party(case):
+    """ Handles case parsing in the event where there is no party before the
+    suscrita clause, but the suscrita clause contains a party
+    """
+    legislator_title = ""
+    legislator_gender = ""
+    capturable_names = ["diputad", "senador", "diputado", "diputados", "diputadas"]
+    #Case when there also is no legislator_title
+    pre_suscrita = re.search('.* suscrita', case).group()
+    print pre_suscrita
+    if not any(x in pre_suscrita for x in capturable_names):
+        print "CASE: NO LEGISLATOR_TITLE"
+        title_flag = False
+        title_line = "(?P<title>(la|las|el|los)?).*"
+
+    else:
+        title_flag = True
+        title_line = "(?P<title>(la|las|el|los) [\S]*)\s"
+
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por " \
+                                           + title_line +
+                                           "(?P<legislator>[^,].*)(,|;)? ?"
+                                           "y? suscrita "
+                                           "(?P<suscrita>.*)"
+                                           "(?:\.)?"
+                                           ,re.U),unicode(case))
+    if title_flag:
+        legislator_title = legislator_line.group('title')
+        legislator_gender = get_legislator_gender(legislator_title)
+    legislator_party = ""
+    legislator_names = re.split(',| y ',legislator_line.group('legislator'))
+    legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
+    suscrita = legislator_line.group('suscrita')
+    return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
+
+def legislator_edge_funky_commas(case):
+    """Case for when the party is separated by commas, and not a command and
+    semicolon.
+    """
+    print case
+    parties = "(PRD|PVEM|Movimiento Ciudadano|PRI|PAN|PT|Nueva Alianza|" \
+              "Convergencia)"
+    party = re.search(parties,case).group()
+    print "party: "+party
+ 
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
+                                           "(?P<title>(la|las|el|los) [\S]*)\s"
+                                           "(?P<legislator>[^,].*)?, (del |"
+                                           "de los Grupos (p|P)arlamentarios del )?"
+                                           "(?P<party>"+ party + "[^\.]*"
+                                           ")"
+                                           "(?:\.)?"
+                                           ,re.U),unicode(case))
+    legislator_title = legislator_line.group('title')
+    legislator_gender = get_legislator_gender(legislator_title)
+    legislator_party = legislator_line.group('party')
+    legislator_names = re.split(',| y ',legislator_line.group('legislator'))
+    legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
+    legislator_party, suscrita = get_suscrita(legislator_party,case)
+    return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
+
+def legislator_edge_no_title(case):
+    """Case for when there is no title in the legislator_line
+    """
+    legislator_line = re.search(re.compile("(Presentada|Enviad(o|a)) por "
+                                           "(?P<title>(la|las|el|los)).*"
+                                           "(?P<legislator>[^,].*), (del)?"
+                                           "(?P<party>[^\.]*)(?:\.)",re.U),unicode(case))
+    print legislator_line.group()
+    legislator_title = "ERROR"
+    legislator_gender = get_legislator_gender(legislator_title)
+    legislator_party = legislator_line.group('party')
+    legislator_names = re.split(',| y ',legislator_line.group('legislator'))
+    legislator_names = [strip_accents(legislator_name) for legislator_name in legislator_names]
+    legislator_party, suscrita = get_suscrita(legislator_party,case)
+    return (legislator_title, legislator_names, legislator_gender, legislator_party, suscrita)
+
+def get_suscrita(legislator_party, case):
     """Separates out the suscrita poriton from the party variable. This is
-    necessary because the regex was getting horribly indecipherable."""
+    necessary because the regex was getting horribly indecipherable.
+    """
+    parties = "(PRD|PVEM|Movimiento Ciudadano|PRI|PAN|PT|Nueva Alianza|" \
+              "Convergencia)"
+    for party in parties[1:-1].split('|'):
+        pass
     suscrita = ""
+    print "suscrita section"
+    print "legislator_party: " + legislator_party
     match = re.search("(?:y suscrita )(?P<suscrita>.*)", legislator_party)
     print legislator_party
     if match:
+        print case
         print "we got a match!"
-        leg_match = re.search("(?P<legislator_party>.*?)(?:;)", legislator_party)
+        print legislator_party
+        leg_match = re.search("(?P<legislator_party>.*?)(?:(,|;))", legislator_party)
         legislator_party = leg_match.group("legislator_party")
         suscrita = match.group("suscrita")
         print suscrita
     return legislator_party, suscrita
 
 def get_legislator_gender(legislator_title):
+    """Returns the gender from a legislator title. No inferences are made if
+    the title is plural masculine (los)
+    """
     legislator_gender = ""
-    if re.search("el diputado *",legislator_title):
+    if re.search("^el *",legislator_title):
         legislator_gender = "male"
-    elif re.search("las? diputadas? *",legislator_title):
+    elif re.search("^las? ",legislator_title):
         legislator_gender = "female"
     return legislator_gender
 
@@ -255,7 +405,7 @@ def get_date_introduced(case):
 
 def initialize_output(name):
     """creates a DictWriter that writes the output tsv"""
-    output_dir = os.path.abspath('output')
+    output_dir = os.path.abspath('output/parsed')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     date = time.strftime("%Y%m%d")
