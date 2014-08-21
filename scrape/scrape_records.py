@@ -4,9 +4,10 @@ import re
 
 def main():
     setup_dirs()
-    base_url = 'http://gaceta.diputados.gob.mx/Gaceta/Iniciativas/'
+    base_url = 'http://gaceta.diputados.gob.mx/gp_iniciativas.html'
     directory_soup = get_soup(base_url)
     links = directory_soup.findAll('a')
+    base_url = 'http://gaceta.diputados.gob.mx'
     for link in links:
         download_iniciativa(link, base_url)
 
@@ -25,40 +26,14 @@ def download_iniciativa(link, base_url):
     if (link == '57/gp57_iniciativas.html') or ('mailto' in link):
         print "skipping " + base_url+link
         return
+    print str(base_url+link)
     iniciativas = urllib2.urlopen(str(base_url+link))
-    #soup = bs(iniciativas)
-    #print iniciativas.read()
     filename = os.path.basename(link)
     print filename
     iniciativa_html = os.path.join('downloads/iniciativas', filename)
 
     with open(iniciativa_html, 'w+') as iniciativa:
-        #iniciativa.write(str(soup))
-        #buffered_download(iniciativas, iniciativa)
-        #print iniciativas.read()
         iniciativa.write(iniciativas.read())
-
-def buffered_download(page, path):
-    meta = page.info()
-    file_size = int(meta.getheaders("Content-Length")[0])
-    print "Downloading: %s Bytes: %s" % (path.name, file_size)
-
-    file_size_dl = 0
-    block_sz = 8192
-    while True:
-        buffer = page.read(block_sz)
-        buffer = buffer.encode('utf-8')
-        if not buffer:
-            break
-
-        file_size_dl += len(buffer)
-        path.write(buffer)
-        status = r"%10d [%3.2f%%]:" % (file_size_dl, file_size_dl * 100. / file_size)
-        status = status + chr(8)*(len(status)+1)
-        print status,
-
-    path.close()
-
 
 if __name__ == "__main__":
     main()
