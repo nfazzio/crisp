@@ -21,11 +21,8 @@ with open(os.path.abspath('resources/committees.csv'), 'Ur') as f:
 def main():
     #TODO Finish setting up option parser
     parser = set_up_parser()
-<<<<<<< HEAD
-
     #url to parse 
-=======
-    '''
+    
     for filename in os.listdir(os.path.abspath('downloads/iniciativas')):
         with open(os.path.abspath('downloads/iniciativas/'+filename)) as page:
             print "HELLA: "+filename
@@ -38,7 +35,6 @@ def main():
             for dictionary in case_dict_list:
                 tsv_out.writerow({k: strip_accents(unicode(v)).encode('utf-8') for (k, v) in dictionary.iteritems()})
     '''
->>>>>>> multiple_files
     page = open(os.path.join(os.path.abspath('downloads/testing'),'gp62_a1primero.html'))
     #page = open(os.path.join(os.path.abspath('downloads'),'edge_cases.html'))
     soup = BeautifulSoup(page, "lxml")
@@ -50,7 +46,7 @@ def main():
     tsv_out.writeheader()
     for dictionary in case_dict_list:
         tsv_out.writerow({k: strip_accents(unicode(v)) for (k, v) in dictionary.iteritems()})
-    
+    '''
 
 def get_cases(soup):
     """Returns all bills from an html page."""
